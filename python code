@@ -1,0 +1,605 @@
+import json
+import os
+from datetime import datetime
+
+
+# ============================================================
+# RESTAURANT MANAGEMENT SYSTEM
+# ============================================================
+
+MENU_FILE = "menu.json"
+ORDERS_FILE = "orders.json"
+
+
+# ============================================================
+# DEFAULT MENU
+# ============================================================
+
+DEFAULT_MENU = {
+    1: {"name": "Paneer Butter Masala", "price": 220},
+    2: {"name": "Veg Biryani", "price": 180},
+    3: {"name": "Masala Dosa", "price": 120},
+    4: {"name": "Veg Fried Rice", "price": 160},
+    5: {"name": "Manchurian", "price": 150},
+    6: {"name": "Pizza", "price": 250},
+    7: {"name": "Burger", "price": 140},
+    8: {"name": "French Fries", "price": 100},
+    9: {"name": "Cold Drink", "price": 60},
+    10: {"name": "Ice Cream", "price": 90}
+}
+
+
+
+# ============================================================
+# FILE HANDLING
+# ============================================================
+
+def load_menu():
+    """Load menu from JSON file."""
+
+    if os.path.exists(MENU_FILE):
+        try:
+            with open(MENU_FILE, "r") as file:
+                data = json.load(file)
+
+            return {int(k): v for k, v in data.items()}
+
+        except (json.JSONDecodeError, ValueError):
+            return DEFAULT_MENU.copy()
+
+    save_menu(DEFAULT_MENU)
+    return DEFAULT_MENU.copy()
+
+
+def save_menu(menu):
+    """Save menu into JSON file."""
+
+    with open(MENU_FILE, "w") as file:
+        json.dump(menu, file, indent=4)
+
+
+def load_orders():
+    """Load previous orders."""
+
+    if os.path.exists(ORDERS_FILE):
+        try:
+            with open(ORDERS_FILE, "r") as file:
+                return json.load(file)
+
+        except json.JSONDecodeError:
+            return []
+
+    return []
+
+
+def save_orders(orders):
+    """Save orders into JSON file."""
+
+    with open(ORDERS_FILE, "w") as file:
+        json.dump(orders, file, indent=4)
+
+
+# ============================================================
+# DISPLAY MENU
+# ============================================================
+
+def display_menu(menu):
+
+    print("\n" + "=" * 60)
+    print("                 RESTAURANT MENU")
+    print("=" * 60)
+
+    print(f"{'ID':<6}{'ITEM':<30}{'PRICE':>15}")
+    print("-" * 60)
+
+    for item_id, item in menu.items():
+        print(
+            f"{item_id:<6}"
+            f"{item['name']:<30}"
+            f"₹{item['price']:>13.2f}"
+        )
+
+    print("=" * 60)
+
+
+# ============================================================
+# ADD MENU ITEM
+# ============================================================
+
+def add_menu_item(menu):
+
+    print("\n--- ADD NEW MENU ITEM ---")
+
+    while True:
+        try:
+            item_id = int(input("Enter item ID: "))
+
+            if item_id in menu:
+                print("Item ID already exists.")
+                continue
+
+            break
+
+        except ValueError:
+            print("Please enter a valid number.")
+
+    name = input("Enter item name: ").strip()
+
+    while not name:
+        print("Item name cannot be empty.")
+        name = input("Enter item name: ").strip()
+
+    while True:
+        try:
+            price = float(input("Enter item price: "))
+
+            if price <= 0:
+                print("Price must be greater than 0.")
+                continue
+
+            break
+
+        except ValueError:
+            print("Please enter a valid price.")
+
+    menu[item_id] = {
+        "name": name,
+        "price": price
+    }
+
+    save_menu(menu)
+
+    print("\nItem added successfully!")
+
+
+# ============================================================
+# UPDATE MENU ITEM
+# ============================================================
+
+def update_menu_item(menu):
+
+    display_menu(menu)
+
+    try:
+        item_id = int(input("\nEnter item ID to update: "))
+
+        if item_id not in menu:
+            print("Item not found.")
+            return
+
+        print("\nCurrent Item:")
+        print("Name :", menu[item_id]["name"])
+        print("Price:", menu[item_id]["price"])
+
+        new_name = input(
+            "Enter new name (press Enter to keep old name): "
+        ).strip()
+
+        new_price = input(
+            "Enter new price (press Enter to keep old price): "
+        ).strip()
+
+        if new_name:
+            menu[item_id]["name"] = new_name
+
+        if new_price:
+            try:
+                price = float(new_price)
+
+                if price <= 0:
+                    print("Invalid price.")
+                    return
+
+                menu[item_id]["price"] = price
+
+            except ValueError:
+                print("Invalid price.")
+                return
+
+        save_menu(menu)
+
+        print("\nItem updated successfully!")
+
+    except ValueError:
+        print("Invalid item ID.")
+
+
+# ============================================================
+# DELETE MENU ITEM
+# ============================================================
+
+def delete_menu_item(menu):
+
+    display_menu(menu)
+
+    try:
+        item_id = int(input("\nEnter item ID to delete: "))
+
+        if item_id not in menu:
+            print("Item not found.")
+            return
+
+        item_name = menu[item_id]["name"]
+
+        confirm = input(
+            f"Are you sure you want to delete '{item_name}'? (y/n): "
+        ).lower()
+
+        if confirm == "y":
+            del menu[item_id]
+            save_menu(menu)
+
+            print("Item deleted successfully!")
+
+        else:
+            print("Delete operation cancelled.")
+
+    except ValueError:
+        print("Invalid item ID.")
+
+
+# ============================================================
+# PLACE ORDER
+# ============================================================
+
+def place_order(menu, orders):
+
+    if not menu:
+        print("Menu is empty.")
+        return
+
+    display_menu(menu)
+
+    customer_name = input("\nEnter customer name: ").strip()
+
+    if not customer_name:
+        customer_name = "Guest"
+
+    cart = []
+
+    print("\nEnter item IDs to order.")
+    print("Enter 0 when you have finished ordering.")
+
+    while True:
+
+        try:
+            item_id = int(input("\nEnter item ID: "))
+
+            if item_id == 0:
+                break
+
+            if item_id not in menu:
+                print("Invalid item ID.")
+                continue
+
+            quantity = int(
+                input(f"Enter quantity for {menu[item_id]['name']}: ")
+            )
+
+            if quantity <= 0:
+                print("Quantity must be greater than 0.")
+                continue
+
+            item = menu[item_id]
+
+            cart.append({
+                "item_id": item_id,
+                "name": item["name"],
+                "price": item["price"],
+                "quantity": quantity,
+                "total": item["price"] * quantity
+            })
+
+            print(
+                f"{item['name']} x {quantity} added to order."
+            )
+
+        except ValueError:
+            print("Please enter a valid number.")
+
+    if not cart:
+        print("\nNo items selected.")
+        return
+
+    # Calculate subtotal
+    subtotal = sum(item["total"] for item in cart)
+
+    # GST
+    gst_rate = 0.05
+    gst = subtotal * gst_rate
+
+    # Final amount
+    grand_total = subtotal + gst
+
+    order_id = len(orders) + 1
+
+    order = {
+        "order_id": order_id,
+        "customer_name": customer_name,
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "time": datetime.now().strftime("%H:%M:%S"),
+        "items": cart,
+        "subtotal": subtotal,
+        "gst": gst,
+        "grand_total": grand_total
+    }
+
+    orders.append(order)
+
+    save_orders(orders)
+
+    print_bill(order)
+
+
+# ============================================================
+# PRINT BILL
+# ============================================================
+
+def print_bill(order):
+
+    print("\n")
+    print("=" * 65)
+    print("                    RESTAURANT BILL")
+    print("=" * 65)
+
+    print(f"Order ID     : {order['order_id']}")
+    print(f"Customer     : {order['customer_name']}")
+    print(f"Date         : {order['date']}")
+    print(f"Time         : {order['time']}")
+
+    print("-" * 65)
+
+    print(
+        f"{'Item':<28}"
+        f"{'Qty':>6}"
+        f"{'Price':>12}"
+        f"{'Total':>14}"
+    )
+
+    print("-" * 65)
+
+    for item in order["items"]:
+
+        print(
+            f"{item['name']:<28}"
+            f"{item['quantity']:>6}"
+            f"₹{item['price']:>10.2f}"
+            f"₹{item['total']:>12.2f}"
+        )
+
+    print("-" * 65)
+
+    print(
+        f"{'Subtotal':>50} : "
+        f"₹{order['subtotal']:>10.2f}"
+    )
+
+    print(
+        f"{'GST (5%)':>50} : "
+        f"₹{order['gst']:>10.2f}"
+    )
+
+    print("-" * 65)
+
+    print(
+        f"{'GRAND TOTAL':>50} : "
+        f"₹{order['grand_total']:>10.2f}"
+    )
+
+    print("=" * 65)
+    print("              Thank You! Visit Again!")
+    print("=" * 65)
+
+
+# ============================================================
+# VIEW ORDER HISTORY
+# ============================================================
+
+def view_order_history(orders):
+
+    print("\n" + "=" * 70)
+    print("                    ORDER HISTORY")
+    print("=" * 70)
+
+    if not orders:
+        print("No orders found.")
+        return
+
+    for order in orders:
+
+        print("\nOrder ID :", order["order_id"])
+        print("Customer :", order["customer_name"])
+        print("Date     :", order["date"])
+        print("Time     :", order["time"])
+
+        print("-" * 70)
+
+        for item in order["items"]:
+
+            print(
+                f"{item['name']} "
+                f"x {item['quantity']} = "
+                f"₹{item['total']:.2f}"
+            )
+
+        print(
+            f"Grand Total: ₹{order['grand_total']:.2f}"
+        )
+
+        print("-" * 70)
+
+
+# ============================================================
+# SEARCH ORDER
+# ============================================================
+
+def search_order(orders):
+
+    if not orders:
+        print("\nNo orders available.")
+        return
+
+    try:
+        order_id = int(input("\nEnter Order ID: "))
+
+    except ValueError:
+        print("Invalid Order ID.")
+        return
+
+    for order in orders:
+
+        if order["order_id"] == order_id:
+
+            print_bill(order)
+            return
+
+    print("Order not found.")
+
+
+# ============================================================
+# SALES REPORT
+# ============================================================
+
+def sales_report(orders):
+
+    print("\n" + "=" * 60)
+    print("                    SALES REPORT")
+    print("=" * 60)
+
+    if not orders:
+        print("No sales data available.")
+        return
+
+    total_orders = len(orders)
+
+    total_sales = sum(
+        order["grand_total"]
+        for order in orders
+    )
+
+    total_items = sum(
+        item["quantity"]
+        for order in orders
+        for item in order["items"]
+    )
+
+    average_order = total_sales / total_orders
+
+    print(f"Total Orders       : {total_orders}")
+    print(f"Total Items Sold   : {total_items}")
+    print(f"Total Sales        : ₹{total_sales:.2f}")
+    print(f"Average Order      : ₹{average_order:.2f}")
+
+    print("=" * 60)
+
+
+# ============================================================
+# ADMIN MENU
+# ============================================================
+
+def admin_menu(menu):
+
+    while True:
+
+        print("\n")
+        print("=" * 50)
+        print("              ADMIN PANEL")
+        print("=" * 50)
+
+        print("1. Display Menu")
+        print("2. Add Menu Item")
+        print("3. Update Menu Item")
+        print("4. Delete Menu Item")
+        print("5. Back to Main Menu")
+
+        choice = input("\nEnter your choice: ")
+
+        if choice == "1":
+            display_menu(menu)
+
+        elif choice == "2":
+            add_menu_item(menu)
+
+        elif choice == "3":
+            update_menu_item(menu)
+
+        elif choice == "4":
+            delete_menu_item(menu)
+
+        elif choice == "5":
+            break
+
+        else:
+            print("Invalid choice.")
+
+
+# ============================================================
+# MAIN MENU
+# ============================================================
+
+def main():
+
+    menu = load_menu()
+    orders = load_orders()
+
+    while True:
+
+        print("\n")
+        print("=" * 60)
+        print("          RESTAURANT MANAGEMENT SYSTEM")
+        print("=" * 60)
+
+        print("1. View Menu")
+        print("2. Place Order")
+        print("3. View Order History")
+        print("4. Search Order")
+        print("5. Sales Report")
+        print("6. Admin Panel")
+        print("7. Exit")
+
+        print("=" * 60)
+
+        choice = input("Enter your choice: ")
+
+        if choice == "1":
+
+            display_menu(menu)
+
+        elif choice == "2":
+
+            place_order(menu, orders)
+
+        elif choice == "3":
+
+            view_order_history(orders)
+
+        elif choice == "4":
+
+            search_order(orders)
+
+        elif choice == "5":
+
+            sales_report(orders)
+
+        elif choice == "6":
+
+            admin_menu(menu)
+
+        elif choice == "7":
+
+            print("\nThank you for using Restaurant Management System!")
+            print("Program closed successfully.")
+
+            break
+
+        else:
+
+            print("\nInvalid choice. Please try again.")
+
+
+# ============================================================
+# PROGRAM START
+# ============================================================
+
+if __name__ == "__main__":
+    main()
